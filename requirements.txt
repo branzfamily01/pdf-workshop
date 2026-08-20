@@ -1,0 +1,6 @@
+PySide6>=6.8,<7
+pypdf>=5.9,<7
+pypdfium2>=4.30,<6
+Pillow>=11,<13
+opencv-python>=4.10,<5
+ocrmypdf>=16.10,<19

@@ -1,0 +1,20 @@
+PDF Workshop MVP - Windows
+==========================
+
+1) ZIPを解凍します。
+2) Python 3.12 以上をWindowsへ入れます。
+3) setup_windows.bat をダブルクリックします。
+4) セットアップ完了後、run_windows.bat をダブルクリックします。
+
+OCRを使わない場合:
+  これだけでPDF整理機能を使えます。
+
+OCRも使う場合:
+  Tesseract OCR 5をWindowsへインストールし、jpn / eng 言語データを入れてください。
+  その後 run_windows.bat を再起動してください。
+
+最初に試す流れ:
+  PDF追加 → PDF診断 → 見開き左右分割 → 冊子順→通常順 → クロップ → PDFを書き出す
+
+注意:
+  初期MVPなので、OCRの詳細ページ進捗、自動見開き境界検出、白紙自動解析、EXEインストーラー化は次段階です。
