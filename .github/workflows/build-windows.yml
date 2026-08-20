@@ -1,0 +1,88 @@
+name: Build Windows Portable
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'pdf_workshop/**'
+      - 'launcher.py'
+      - 'requirements.txt'
+      - '.github/workflows/build-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: Install Tesseract and Japanese language data
+        shell: pwsh
+        run: |
+          choco install tesseract --yes --no-progress
+          $exe = (Get-Command tesseract.exe).Source
+          $dir = Split-Path $exe
+          $tessdata = Join-Path $dir 'tessdata'
+          New-Item -ItemType Directory -Force -Path $tessdata | Out-Null
+          curl.exe -L 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/jpn.traineddata' -o (Join-Path $tessdata 'jpn.traineddata')
+          Write-Host "Tesseract: $dir"
+
+      - name: Run core tests
+        run: python run_tests.py
+
+      - name: Build Windows app
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --windowed --onedir --name PDFWorkshop `
+            --collect-all ocrmypdf `
+            --collect-all pypdfium2 `
+            --hidden-import pdf_workshop.main `
+            launcher.py
+
+      - name: Bundle Tesseract
+        shell: pwsh
+        run: |
+          $exe = (Get-Command tesseract.exe).Source
+          $dir = Split-Path $exe
+          $target = 'dist/PDFWorkshop/runtime/tesseract'
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          Copy-Item -Path (Join-Path $dir '*') -Destination $target -Recurse -Force
+
+      - name: Add notices and beginner guide
+        shell: pwsh
+        run: |
+          Copy-Item THIRD_PARTY_NOTICES.md dist/PDFWorkshop/THIRD_PARTY_NOTICES.md
+          @'
+          PDF Workshop - はじめかた
+          ==========================
+
+          1. このZIPを解凍します。
+          2. PDFWorkshop.exe をダブルクリックします。
+          3. PDFを画面へドラッグします。
+
+          Pythonのインストールは不要です。
+          OCR用Tesseractもこのフォルダに同梱されています。
+          '@ | Set-Content -Encoding UTF8 dist/PDFWorkshop/はじめに.txt
+
+      - name: Create ZIP
+        shell: pwsh
+        run: Compress-Archive -Path dist/PDFWorkshop/* -DestinationPath PDFWorkshop-Windows-Portable.zip -Force
+
+      - name: Upload Windows portable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDFWorkshop-Windows-Portable
+          path: PDFWorkshop-Windows-Portable.zip
+          retention-days: 30

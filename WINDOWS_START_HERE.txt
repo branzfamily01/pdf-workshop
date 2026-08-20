@@ -1,20 +1,25 @@
-PDF Workshop MVP - Windows
-==========================
+PDF Workshop - Windows版のはじめかた
+==================================
 
-1) ZIPを解凍します。
-2) Python 3.12 以上をWindowsへ入れます。
-3) setup_windows.bat をダブルクリックします。
-4) セットアップ完了後、run_windows.bat をダブルクリックします。
+通常利用ではPythonをインストールする必要はありません。
 
-OCRを使わない場合:
-  これだけでPDF整理機能を使えます。
+使い方
+------
+1) GitHub Actionsで作成された PDFWorkshop-Windows-Portable.zip をダウンロードします。
+2) ZIPを右クリックして「すべて展開」します。
+3) 展開したフォルダの PDFWorkshop.exe をダブルクリックします。
+4) アプリが開いたらPDFを画面へドラッグします。
 
-OCRも使う場合:
-  Tesseract OCR 5をWindowsへインストールし、jpn / eng 言語データを入れてください。
-  その後 run_windows.bat を再起動してください。
+OCRについて
+-----------
+配布版にはOCR用のTesseractも同梱する構成です。
+別途PythonやTesseractを自分でインストールする必要はありません。
 
-最初に試す流れ:
-  PDF追加 → PDF診断 → 見開き左右分割 → 冊子順→通常順 → クロップ → PDFを書き出す
+最初に試す流れ
+-------------
+PDF追加 → PDF診断 → 見開き左右分割 → 冊子順→通常順 → クロップ → OCR → PDFを書き出す
 
-注意:
-  初期MVPなので、OCRの詳細ページ進捗、自動見開き境界検出、白紙自動解析、EXEインストーラー化は次段階です。
+開発者向け
+---------
+setup_windows.bat / run_windows.bat はソースコードから動かす開発用です。
+通常利用者は使いません。
