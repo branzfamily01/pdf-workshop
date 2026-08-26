@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "title": "PDF Workshop",
+  "slug": "pdf-workshop",
+  "type": "desktop-app",
+  "category": "Tools",
+  "summary": "見開き・冊子順・回転・クロップ・OCRなどを一つの画面で整理し、使いやすい教材PDFへ復元するWindowsローカルアプリ。",
+  "tags": ["PDF", "OCR", "教材", "Windows", "ローカル処理"],
+  "color": "blue",
+  "status": "active",
+  "visibility": "public",
+  "githubRepo": "pdf-workshop",
+  "repoUrl": "https://github.com/branzfamily01/pdf-workshop",
+  "manualUrl": "https://github.com/branzfamily01/pdf-workshop/blob/main/manual.html",
+  "updatedAt": "2026-08-27"
+}
