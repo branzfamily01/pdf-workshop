@@ -1,8 +1,8 @@
 {
-  "artifact": "PDFWorkshop-Windows-Portable",
+  "status": "success",
+  "commit": "95a650fb00d3b4a6b4aac824ea4aaeb09f34e95e",
   "schemaVersion": 1,
-  "builtAt": "2026-08-26T23:02:31.2954671Z",
-  "status": "cancelled",
-  "commit": "a49a7b70a46d1bf022e0c62adc050b5122e654cd",
-  "runId": "33021750925"
+  "builtAt": "2026-08-26T23:09:03.4278028Z",
+  "artifact": "PDFWorkshop-Windows-Portable",
+  "runId": "33022004445"
 }
