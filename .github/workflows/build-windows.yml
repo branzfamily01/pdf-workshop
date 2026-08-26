@@ -8,6 +8,8 @@ on:
       - 'pdf_workshop/**'
       - 'launcher.py'
       - 'requirements.txt'
+      - 'manual.html'
+      - 'THIRD_PARTY_NOTICES.md'
       - '.github/workflows/build-windows.yml'
 
 jobs:
@@ -32,8 +34,10 @@ jobs:
         shell: pwsh
         run: |
           choco install tesseract --yes --no-progress
-          $exe = (Get-Command tesseract.exe).Source
-          $dir = Split-Path $exe
+          $dir = 'C:\Program Files\Tesseract-OCR'
+          if (!(Test-Path (Join-Path $dir 'tesseract.exe'))) {
+            throw "Tesseract was not found at $dir"
+          }
           $tessdata = Join-Path $dir 'tessdata'
           New-Item -ItemType Directory -Force -Path $tessdata | Out-Null
           curl.exe -L 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/jpn.traineddata' -o (Join-Path $tessdata 'jpn.traineddata')
@@ -54,16 +58,21 @@ jobs:
       - name: Bundle Tesseract
         shell: pwsh
         run: |
-          $exe = (Get-Command tesseract.exe).Source
-          $dir = Split-Path $exe
+          $dir = 'C:\Program Files\Tesseract-OCR'
+          if (!(Test-Path (Join-Path $dir 'tesseract.exe'))) {
+            throw "Tesseract executable is missing: $dir"
+          }
           $target = 'dist/PDFWorkshop/runtime/tesseract'
           New-Item -ItemType Directory -Force -Path $target | Out-Null
           Copy-Item -Path (Join-Path $dir '*') -Destination $target -Recurse -Force
+          if (!(Test-Path (Join-Path $target 'tesseract.exe'))) { throw 'Bundled tesseract.exe is missing' }
+          if (!(Test-Path (Join-Path $target 'tessdata/jpn.traineddata'))) { throw 'Bundled Japanese OCR data is missing' }
 
-      - name: Add notices and beginner guide
+      - name: Add manual, notices and beginner guide
         shell: pwsh
         run: |
           Copy-Item THIRD_PARTY_NOTICES.md dist/PDFWorkshop/THIRD_PARTY_NOTICES.md
+          Copy-Item manual.html dist/PDFWorkshop/manual.html
           @'
           PDF Workshop - はじめかた
           ==========================
@@ -71,6 +80,7 @@ jobs:
           1. このZIPを解凍します。
           2. PDFWorkshop.exe をダブルクリックします。
           3. PDFを画面へドラッグします。
+          4. 分からないときは画面の「？ 使い方」を押します。
 
           Pythonのインストールは不要です。
           OCR用Tesseractもこのフォルダに同梱されています。
