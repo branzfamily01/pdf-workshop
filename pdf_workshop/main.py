@@ -1,22 +1,23 @@
 from __future__ import annotations
 import sys
+import webbrowser
 from pathlib import Path
 from copy import deepcopy
 
 try:
-    from PySide6.QtCore import Qt, QSize, QThread, Signal, QObject
-    from PySide6.QtGui import QAction, QPixmap, QImage
+    from PySide6.QtCore import Qt, QThread, Signal, QObject
+    from PySide6.QtGui import QAction, QPixmap, QImage, QKeySequence
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
         QPushButton, QFileDialog, QListWidget, QListWidgetItem, QMessageBox,
-        QSplitter, QInputDialog, QProgressDialog, QDialog, QFormLayout,
-        QDoubleSpinBox, QDialogButtonBox, QComboBox
+        QSplitter, QProgressDialog, QDialog, QFormLayout, QDoubleSpinBox,
+        QDialogButtonBox
     )
 except ImportError as e:
-    raise SystemExit("PySide6 が必要です。setup_windows.bat を実行してください。") from e
+    raise SystemExit("PySide6 が必要です。配布版ではPDFWorkshop.exeを起動してください。") from e
 
 import pypdfium2 as pdfium
-from .model import Project, Crop, Page
+from .model import Project, Crop
 from .pdf_engine import import_pdf, diagnose, export_project
 from .booklet import deimpose
 from .ocr_runner import availability as ocr_availability, run_ocr
@@ -51,8 +52,9 @@ class CropDialog(QDialog):
 
 class MainWindow(QMainWindow):
     def __init__(self):
-        super().__init__(); self.setWindowTitle("PDF Workshop MVP"); self.resize(1200,800)
+        super().__init__(); self.setWindowTitle("PDF Workshop"); self.resize(1200,800)
         self.setAcceptDrops(True); self.project=Project(); self.project_path=None
+        self.undo_stack=[]; self.redo_stack=[]
         self._build_ui(); self._build_menu()
 
     def _build_ui(self):
@@ -60,8 +62,10 @@ class MainWindow(QMainWindow):
         header=QHBoxLayout(); self.summary=QLabel("PDFをここへドロップ、または『PDF追加』")
         add=QPushButton("PDF追加"); add.clicked.connect(self.add_files)
         diag=QPushButton("PDF診断"); diag.clicked.connect(self.show_diagnosis)
+        help_btn=QPushButton("？ 使い方"); help_btn.clicked.connect(self.open_manual)
         export=QPushButton("PDFを書き出す"); export.clicked.connect(self.export_pdf)
-        for w in [self.summary, add, diag, export]: header.addWidget(w)
+        header.addWidget(self.summary,1)
+        for w in [add, diag, help_btn, export]: header.addWidget(w)
         outer.addLayout(header)
         split=QSplitter(); self.list=QListWidget(); self.list.setSelectionMode(QListWidget.ExtendedSelection)
         self.list.setDragDropMode(QListWidget.InternalMove); self.list.model().rowsMoved.connect(self.sync_order_from_list)
@@ -78,6 +82,33 @@ class MainWindow(QMainWindow):
         m=self.menuBar().addMenu("ファイル")
         for text,fn in [("PDF追加",self.add_files),("プロジェクト保存",self.save_project),("プロジェクトを開く",self.load_project),("PDF書き出し",self.export_pdf)]:
             a=QAction(text,self); a.triggered.connect(fn); m.addAction(a)
+        edit=self.menuBar().addMenu("編集")
+        ua=QAction("元に戻す",self); ua.setShortcut(QKeySequence.Undo); ua.triggered.connect(self.undo); edit.addAction(ua)
+        ra=QAction("やり直す",self); ra.setShortcut(QKeySequence.Redo); ra.triggered.connect(self.redo); edit.addAction(ra)
+        help_menu=self.menuBar().addMenu("ヘルプ")
+        ha=QAction("使い方",self); ha.triggered.connect(self.open_manual); help_menu.addAction(ha)
+
+    def _remember(self):
+        self.undo_stack.append(deepcopy(self.project))
+        if len(self.undo_stack)>40: self.undo_stack.pop(0)
+        self.redo_stack.clear()
+
+    def undo(self):
+        if not self.undo_stack: return
+        self.redo_stack.append(deepcopy(self.project)); self.project=self.undo_stack.pop(); self.refresh_list()
+
+    def redo(self):
+        if not self.redo_stack: return
+        self.undo_stack.append(deepcopy(self.project)); self.project=self.redo_stack.pop(); self.refresh_list()
+
+    def manual_path(self):
+        if getattr(sys,"frozen",False): return Path(sys.executable).resolve().parent/"manual.html"
+        return Path(__file__).resolve().parents[1]/"manual.html"
+
+    def open_manual(self):
+        path=self.manual_path()
+        if path.exists(): webbrowser.open(path.as_uri())
+        else: QMessageBox.warning(self,"使い方","manual.html が見つかりません。配布フォルダを丸ごと展開して使用してください。")
 
     def dragEnterEvent(self,e):
         if e.mimeData().hasUrls(): e.acceptProposedAction()
@@ -88,7 +119,9 @@ class MainWindow(QMainWindow):
     def add_files(self):
         paths,_=QFileDialog.getOpenFileNames(self,"PDFを追加",filter="PDF (*.pdf)"); self.import_paths(paths)
     def import_paths(self,paths):
+        if not paths: return
         try:
+            self._remember()
             for p in paths: import_pdf(self.project,p)
             self.refresh_list(); self.show_diagnosis()
         except Exception as e: QMessageBox.critical(self,"読み込みエラー",str(e))
@@ -127,17 +160,23 @@ class MainWindow(QMainWindow):
         except Exception as e: self.preview.setText(str(e))
 
     def rotate_selected(self,deg):
-        for p in self.selected_pages(): p.rotation=(p.rotation+deg)%360
+        pages=self.selected_pages()
+        if not pages:return
+        self._remember()
+        for p in pages: p.rotation=(p.rotation+deg)%360
         self.refresh_list()
     def toggle_excluded(self):
-        for p in self.selected_pages(): p.excluded=not p.excluded
+        pages=self.selected_pages()
+        if not pages:return
+        self._remember()
+        for p in pages: p.excluded=not p.excluded
         self.refresh_list()
     def crop_selected(self):
         pages=self.selected_pages()
         if not pages: return
         d=CropDialog(self)
         if d.exec():
-            c=d.crop()
+            self._remember(); c=d.crop()
             for p in pages: p.crop=deepcopy(c)
             self.refresh_list(); self.render_preview(self.list.currentRow())
     def split_selected(self):
@@ -145,7 +184,7 @@ class MainWindow(QMainWindow):
         if not ids: return
         direction=QMessageBox.question(self,"読み順","左→右で分割しますか？\n「いいえ」で右→左",QMessageBox.Yes|QMessageBox.No|QMessageBox.Cancel)
         if direction==QMessageBox.Cancel:return
-        new=[]
+        self._remember(); new=[]
         for p in self.project.pages:
             if p.id not in ids: new.append(p); continue
             a,b=deepcopy(p),deepcopy(p); from uuid import uuid4; a.id=str(uuid4()); b.id=str(uuid4()); a.region='LEFT'; b.region='RIGHT'
@@ -156,7 +195,7 @@ class MainWindow(QMainWindow):
         if not pages or len(pages)%4:
             QMessageBox.warning(self,"冊子解除","対象ページ数は4の倍数にしてください。"); return
         try:
-            logical=deimpose(pages); excluded=[p for p in self.project.pages if p.excluded]; self.project.pages=logical+excluded; self.refresh_list()
+            self._remember(); logical=deimpose(pages); excluded=[p for p in self.project.pages if p.excluded]; self.project.pages=logical+excluded; self.refresh_list()
         except Exception as e: QMessageBox.critical(self,"冊子解除",str(e))
 
     def show_diagnosis(self):
@@ -178,7 +217,7 @@ class MainWindow(QMainWindow):
     def load_project(self):
         path,_=QFileDialog.getOpenFileName(self,"プロジェクトを開く",filter="PDF Workshop (*.pdfwork)")
         if path:
-            try: self.project=Project.load(path); self.project_path=path; self.refresh_list()
+            try: self.project=Project.load(path); self.project_path=path; self.undo_stack.clear(); self.redo_stack.clear(); self.refresh_list()
             except Exception as e: QMessageBox.critical(self,"読込エラー",str(e))
     def export_pdf(self):
         if not self.project.pages:return
@@ -195,7 +234,7 @@ class MainWindow(QMainWindow):
         if not out:return
         try: export_project(self.project,tmp)
         except Exception as e: QMessageBox.critical(self,"OCR準備エラー",str(e)); return
-        self.progress=QProgressDialog("OCR処理中…（ページ単位進捗は次版で強化）","閉じる",0,0,self); self.progress.setWindowModality(Qt.NonModal); self.progress.show()
+        self.progress=QProgressDialog("OCR処理中…","閉じる",0,0,self); self.progress.setWindowModality(Qt.NonModal); self.progress.show()
         self.thread=QThread(); self.worker=OCRWorker(tmp,out); self.worker.moveToThread(self.thread); self.thread.started.connect(self.worker.run); self.worker.finished.connect(self.ocr_done); self.worker.finished.connect(self.thread.quit); self.thread.start()
     def ocr_done(self,ok,msg):
         self.progress.close()
