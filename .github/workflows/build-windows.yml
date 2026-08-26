@@ -12,6 +12,9 @@ on:
       - 'THIRD_PARTY_NOTICES.md'
       - '.github/workflows/build-windows.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -96,3 +99,22 @@ jobs:
           name: PDFWorkshop-Windows-Portable
           path: PDFWorkshop-Windows-Portable.zip
           retention-days: 30
+
+      - name: Record successful build
+        shell: pwsh
+        run: |
+          $status = @{
+            schemaVersion = 1
+            status = 'success'
+            artifact = 'PDFWorkshop-Windows-Portable'
+            commit = '${{ github.sha }}'
+            runId = '${{ github.run_id }}'
+            builtAt = (Get-Date).ToUniversalTime().ToString('o')
+          } | ConvertTo-Json
+          $status | Set-Content -Encoding UTF8 build-status.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add build-status.json
+          git commit -m 'Record successful Windows build' || exit 0
+          git pull --rebase origin main
+          git push origin HEAD:main
