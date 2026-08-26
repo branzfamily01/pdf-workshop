@@ -6,7 +6,7 @@ from copy import deepcopy
 
 try:
     from PySide6.QtCore import Qt, QThread, Signal, QObject
-    from PySide6.QtGui import QAction, QPixmap, QImage, QKeySequence
+    from PySide6.QtGui import QAction, QPixmap, QImage
     from PySide6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
         QPushButton, QFileDialog, QListWidget, QListWidgetItem, QMessageBox,
@@ -83,8 +83,8 @@ class MainWindow(QMainWindow):
         for text,fn in [("PDF追加",self.add_files),("プロジェクト保存",self.save_project),("プロジェクトを開く",self.load_project),("PDF書き出し",self.export_pdf)]:
             a=QAction(text,self); a.triggered.connect(fn); m.addAction(a)
         edit=self.menuBar().addMenu("編集")
-        ua=QAction("元に戻す",self); ua.setShortcut(QKeySequence.Undo); ua.triggered.connect(self.undo); edit.addAction(ua)
-        ra=QAction("やり直す",self); ra.setShortcut(QKeySequence.Redo); ra.triggered.connect(self.redo); edit.addAction(ra)
+        ua=QAction("元に戻す",self); ua.setShortcut("Ctrl+Z"); ua.triggered.connect(self.undo); edit.addAction(ua)
+        ra=QAction("やり直す",self); ra.setShortcut("Ctrl+Y"); ra.triggered.connect(self.redo); edit.addAction(ra)
         help_menu=self.menuBar().addMenu("ヘルプ")
         ha=QAction("使い方",self); ha.triggered.connect(self.open_manual); help_menu.addAction(ha)
 
